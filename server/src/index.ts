@@ -1,16 +1,20 @@
-import app from "../src/app.js";
-import { connectDB } from "../src/db/connection.js";
+import "dotenv/config";
+import app from "./app.js";
+import { connectDB } from "./db/connection.js";
 
-export default async function handler(req: any, res: any) {
+const port = process.env.PORT || 5000;
+
+const startServer = async () => {
     try {
         await connectDB();
-        return app(req, res);
-    } catch (err) {
-        console.error("Database connection error:", err);
 
-        return res.status(500).json({
-            success: false,
-            message: "Database connection failed",
+        app.listen(port, () => {
+            console.log(`Server is running on port ${port}`);
         });
+    } catch (error) {
+        console.error("Database connection failed:", error);
+        process.exit(1);
     }
-}
+};
+
+startServer();
