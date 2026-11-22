@@ -105,7 +105,7 @@ const generateNewToken = asyncHandler(async (req: Request, res: Response, next: 
             message: "token is not found",
         });
     }
-    const refresh_token = process.env.REFRESH_JWT_SECRET
+    const refresh_token = process.env.REFRESH_TOKEN_SECRET
     if (!refresh_token) {
         return res.status(404).json({
             success: false,
