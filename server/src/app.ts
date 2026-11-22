@@ -10,48 +10,66 @@ import BookingRoute from "./routes/Booking.route.js";
 
 const app = express();
 
-// Allowed frontend URLs
+// Allowed frontend origins
 const allowedOrigins = [
     "http://localhost:5173",
     process.env.FRONTEND_URL,
-].filter((origin): origin is string => Boolean(origin));
+    process.env.FRONTEND_PREVIEW_URL,
+]
+    .filter((origin): origin is string => Boolean(origin))
+    .map((origin) => origin.replace(/\/$/, ""));
 
 // CORS Configuration
-app.use(
-    cors({
-        origin: (origin, callback) => {
-            if (!origin || allowedOrigins.includes(origin)) {
-                return callback(null, true);
-            }
+const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
 
-            return callback(
-                new Error(`CORS blocked for origin: ${origin}`)
-            );
-        },
+        // Allow requests without an Origin header
+        if (!origin) {
+            return callback(null, true);
+        }
 
-        credentials: true,
+        const normalizedOrigin = origin.replace(/\/$/, "");
 
-        methods: [
-            "GET",
-            "POST",
-            "PUT",
-            "PATCH",
-            "DELETE",
-            "OPTIONS",
-        ],
+        if (allowedOrigins.includes(normalizedOrigin)) {
+            return callback(null, true);
+        }
 
-        allowedHeaders: [
-            "Content-Type",
-            "Authorization",
-        ],
-    })
-);
+        console.log("Blocked CORS Origin:", origin);
 
-// ======================================
-// STRIPE WEBHOOK RAW BODY
-// MUST BE BEFORE express.json()
-// ======================================
+        return callback(
+            new Error("CORS policy: Origin not allowed")
+        );
+    },
 
+    credentials: true,
+
+    methods: [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS",
+        "HEAD"
+    ],
+
+    allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "X-Requested-With"
+    ],
+
+    optionsSuccessStatus: 204,
+};
+
+// Apply CORS globally
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options(/.*/, cors(corsOptions));
+
+// Stripe webhook raw body
 app.use(
     "/api/v1/booking/webhook",
     express.raw({ type: "application/json" })
@@ -67,14 +85,9 @@ app.use(cookieParser());
 // Static files
 app.use(express.static("public"));
 
-// ======================================
-// ROUTES
-// ======================================
-
+// Routes
 app.use("/api/v1/users", userRoute);
-
 app.use("/api/v1/provider", ProviderRoute);
-
 app.use("/api/v1/booking", BookingRoute);
 
 // Error handler
