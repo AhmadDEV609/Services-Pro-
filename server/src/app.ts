@@ -10,35 +10,10 @@ import BookingRoute from "./routes/Booking.route.js";
 
 const app = express();
 
-// Allowed frontend origins
-const allowedOrigins = [
-    "http://localhost:5173",
-    process.env.FRONTEND_URL,
-    process.env.FRONTEND_PREVIEW_URL,
-]
-    .filter((origin): origin is string => Boolean(origin))
-    .map((origin) => origin.replace(/\/$/, ""));
-
-// CORS Configuration
+// CORS Configuration - Allow all origins
 const corsOptions: cors.CorsOptions = {
     origin: (origin, callback) => {
-
-        // Allow requests without an Origin header
-        if (!origin) {
-            return callback(null, true);
-        }
-
-        const normalizedOrigin = origin.replace(/\/$/, "");
-
-        if (allowedOrigins.includes(normalizedOrigin)) {
-            return callback(null, true);
-        }
-
-        console.log("Blocked CORS Origin:", origin);
-
-        return callback(
-            new Error("CORS policy: Origin not allowed")
-        );
+        callback(null, origin || true);
     },
 
     credentials: true,
@@ -50,14 +25,14 @@ const corsOptions: cors.CorsOptions = {
         "PATCH",
         "DELETE",
         "OPTIONS",
-        "HEAD"
+        "HEAD",
     ],
 
     allowedHeaders: [
         "Content-Type",
         "Authorization",
         "Accept",
-        "X-Requested-With"
+        "X-Requested-With",
     ],
 
     optionsSuccessStatus: 204,
