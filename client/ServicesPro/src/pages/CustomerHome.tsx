@@ -36,7 +36,7 @@ const CustomerHome = () => {
     const [search, setSearch] = useState("");
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState("Home");
-    const [menuOpen, setMenuOpen] = useState(false);
+
 
     const filteredCategories = categories.filter((category) =>
         category.name.toLowerCase().includes(search.toLowerCase())
@@ -70,32 +70,9 @@ const CustomerHome = () => {
                             <h1 className="mb-12 text-2xl font-bold">
                                 Services<span className="text-[#57877E]">Pro</span>
                             </h1>
-                            {/* 
-                            <button
-                                onClick={() => setMenuOpen(!menuOpen)}
-                                aria-label="Toggle menu"
-                                className="rounded-lg p-2"
-                            >
-                                {menuOpen ? <X size={23} /> : <Menu size={23} />}
-                            </button> */}
+
                         </div>
 
-                        {menuOpen && (
-                            <div className="mb-5 rounded-xl bg-white p-3 shadow-sm lg:hidden">
-                                {navigation.map((item) => (
-                                    <button
-                                        key={item.name}
-                                        onClick={() => {
-                                            setActiveTab(item.name);
-                                            setMenuOpen(false);
-                                        }}
-                                        className="block w-full rounded-lg px-4 py-3 text-left hover:bg-[#E8F3F5]"
-                                    >
-                                        {item.name}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
 
                         <div className="rounded-[18px] bg-[#E8F3F5] px-4 py-4 lg:px-7 lg:py-6">
                             <h1 className="text-[22px] font-bold lg:text-3xl">
