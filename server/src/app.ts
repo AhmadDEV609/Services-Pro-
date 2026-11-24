@@ -10,10 +10,31 @@ import BookingRoute from "./routes/Booking.route.js";
 
 const app = express();
 
-// CORS Configuration - Allow all origins
-const corsOptions: cors.CorsOptions = {
-    origin: (origin, callback) => {
-        callback(null, origin || true);
+// Allowed frontend origins
+const allowedOrigins = [
+    "https://services-pro-frontend.vercel.app",
+    "http://localhost:5173",
+];
+
+// CORS Configuration
+const corsOptions = {
+    origin: (origin: any, callback: any) => {
+
+        // Allow requests without origin (Postman, server-side)
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        // Check allowed origins
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        console.error("CORS blocked for origin:", origin);
+
+        return callback(
+            new Error(`CORS blocked for origin: ${origin}`)
+        );
     },
 
     credentials: true,
@@ -60,7 +81,7 @@ app.use(cookieParser());
 // Static files
 app.use(express.static("public"));
 
-// Routes
+// API Routes
 app.use("/api/v1/users", userRoute);
 app.use("/api/v1/provider", ProviderRoute);
 app.use("/api/v1/booking", BookingRoute);
