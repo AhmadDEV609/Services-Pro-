@@ -11,8 +11,7 @@ import {
     CalendarDays,
     UserRound,
     ArrowRight,
-    Menu,
-    X,
+
 } from "lucide-react";
 import Sidebar from "../componet/Sidebar";
 
