@@ -3,11 +3,12 @@ import axios, {
     type InternalAxiosRequestConfig,
 } from "axios";
 
-const baseURL = import.meta.env.VITE_API_URL;
-
 interface RetryRequestConfig extends InternalAxiosRequestConfig {
     _retry?: boolean;
 }
+
+// Use frontend's own domain through Vercel proxy
+const baseURL = "/api/v1";
 
 const api = axios.create({
     baseURL,
@@ -19,7 +20,7 @@ const refreshApi = axios.create({
     withCredentials: true,
 });
 
-let refreshPromise: Promise<unknown> | null = null;
+let refreshPromise: Promise<void> | null = null;
 
 api.interceptors.response.use(
     (response) => response,
@@ -34,7 +35,7 @@ api.interceptors.response.use(
 
         const url = originalRequest.url || "";
 
-        // Don't refresh for authentication endpoints
+        // Don't refresh authentication endpoints
         if (
             url.includes("/users/login") ||
             url.includes("/users/signup") ||
@@ -44,6 +45,7 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
 
+        // Prevent infinite retry
         if (originalRequest._retry) {
             return Promise.reject(error);
         }
@@ -51,9 +53,11 @@ api.interceptors.response.use(
         originalRequest._retry = true;
 
         try {
+            // Share one refresh request between simultaneous 401s
             if (!refreshPromise) {
                 refreshPromise = refreshApi
                     .post("/users/refreshToken")
+                    .then(() => undefined)
                     .finally(() => {
                         refreshPromise = null;
                     });
@@ -61,6 +65,7 @@ api.interceptors.response.use(
 
             await refreshPromise;
 
+            // Retry original request
             return api(originalRequest);
 
         } catch (refreshError) {
