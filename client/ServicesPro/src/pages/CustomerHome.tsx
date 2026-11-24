@@ -67,15 +67,17 @@ const CustomerHome = () => {
                     <header className="px-5 pt-6 sm:px-8 lg:px-12 lg:pt-10">
 
                         <div className="mb-6 flex items-center justify-between lg:hidden">
-                            <span className="text-sm font-bold">9:41</span>
-
+                            <h1 className="mb-12 text-2xl font-bold">
+                                Services<span className="text-[#57877E]">Pro</span>
+                            </h1>
+                            {/* 
                             <button
                                 onClick={() => setMenuOpen(!menuOpen)}
                                 aria-label="Toggle menu"
                                 className="rounded-lg p-2"
                             >
                                 {menuOpen ? <X size={23} /> : <Menu size={23} />}
-                            </button>
+                            </button> */}
                         </div>
 
                         {menuOpen && (
