@@ -3,12 +3,10 @@ import {
     createContext,
     useContext,
     useEffect,
-    useState,
     useRef,
+    useState,
     type ReactNode,
 } from "react";
-
-import axios from "axios";
 
 import {
     getUser,
@@ -32,95 +30,65 @@ export const AuthProvider = ({
 }: {
     children: ReactNode;
 }) => {
-    const [user, setUser] = useState<AuthUser | null>(null);
+    const [user, setUserState] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Prevent old requests from overwriting newer login state
+    // Prevent old getUser requests from overwriting login state
     const authVersion = useRef(0);
 
-    const updateUser = (newUser: AuthUser | null) => {
+    const setUser = (newUser: AuthUser | null) => {
         authVersion.current += 1;
-        setUser(newUser);
+        setUserState(newUser);
+        setLoading(false);
     };
 
     useEffect(() => {
         let mounted = true;
-        const requestVersion = authVersion.current;
+        const currentVersion = authVersion.current;
 
-        const checkUser = async () => {
+        const checkAuth = async () => {
             try {
                 const response = await getUser();
 
                 if (
                     mounted &&
-                    authVersion.current === requestVersion
+                    authVersion.current === currentVersion
                 ) {
-                    const loggedUser =
-                        response.user ??
-                        response.data?.user ??
-                        null;
-
-                    setUser(loggedUser);
-
-                    console.log(
-                        "AUTH CHECK USER:",
-                        loggedUser
-                    );
+                    setUserState(response.user ?? null);
                 }
-
             } catch (error) {
                 if (
                     mounted &&
-                    authVersion.current === requestVersion
+                    authVersion.current === currentVersion
                 ) {
-                    setUser(null);
+                    setUserState(null);
                 }
 
-                if (
-                    axios.isAxiosError(error) &&
-                    error.response?.status !== 401
-                ) {
-                    console.error(
-                        "Authentication error:",
-                        error
-                    );
-                }
-
+                console.log("Session check:", error);
             } finally {
-                if (mounted) {
+                if (
+                    mounted &&
+                    authVersion.current === currentVersion
+                ) {
                     setLoading(false);
                 }
             }
         };
 
-        const handleSessionExpired = () => {
-            updateUser(null);
-        };
-
-        window.addEventListener(
-            "auth:session-expired",
-            handleSessionExpired
-        );
-
-        checkUser();
+        checkAuth();
 
         return () => {
             mounted = false;
-
-            window.removeEventListener(
-                "auth:session-expired",
-                handleSessionExpired
-            );
         };
     }, []);
 
-    const handleLogout = async () => {
+    const logout = async () => {
         try {
             await logoutApi();
         } catch (error) {
-            console.error("Logout error:", error);
+            console.error("Logout failed:", error);
         } finally {
-            updateUser(null);
+            setUser(null);
         }
     };
 
@@ -128,9 +96,9 @@ export const AuthProvider = ({
         <AuthContext.Provider
             value={{
                 user,
-                setUser: updateUser,
+                setUser,
                 loading,
-                logout: handleLogout,
+                logout,
             }}
         >
             {children}

@@ -1,12 +1,11 @@
+
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const CustomerProtected = () => {
-    const { loading, user } = useAuth();
+    const { user, loading } = useAuth();
 
-    if (loading) {
-        return <h1>Loading...</h1>;
-    }
+    if (loading) return <h1>Loading...</h1>;
 
     if (!user) {
         return <Navigate to="/login" replace />;
@@ -17,6 +16,6 @@ const CustomerProtected = () => {
     }
 
     return <Outlet />;
-}
+};
 
-export default CustomerProtected
+export default CustomerProtected;

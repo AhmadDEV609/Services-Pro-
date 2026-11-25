@@ -36,124 +36,82 @@ const Login = () => {
 
     const signupMessage = location.state?.message;
 
+
     const handleSubmit = async (
         e: FormEvent<HTMLFormElement>
     ) => {
         e.preventDefault();
 
-        console.log("================================");
-        console.log("LOGIN FORM SUBMITTED");
-        console.log("================================");
+        if (loading) return;
 
         setError("");
 
-        if (!form.email.trim()) {
-            console.error("Validation failed: Email required");
-            setError("Please enter your email address.");
-            return;
-        }
-
-        if (!form.password) {
-            console.error("Validation failed: Password required");
-            setError("Please enter your password.");
-            return;
-        }
-
-        if (loading) {
-            console.warn("Login already in progress");
+        if (!form.email.trim() || !form.password) {
+            setError("Please enter email and password.");
             return;
         }
 
         try {
             setLoading(true);
 
-            const loginData = {
+            const response = await login({
                 email: form.email.trim().toLowerCase(),
                 password: form.password,
-            };
+            });
 
-            console.log("STEP 1: Sending login request");
-            console.log("Email:", loginData.email);
-            console.log("Endpoint: POST /api/v1/users/login");
-
-            const response = await login(loginData);
-
-            console.log("STEP 2: Login API response received");
-            console.log("Response:", response);
+            console.log("LOGIN RESPONSE:", response);
 
             if (!response.success || !response.user) {
-                console.error("Login unsuccessful:", response.message);
-
                 setError(response.message || "Login failed.");
                 return;
             }
 
-            console.log("STEP 3: Login successful");
-
             const loggedInUser = response.user;
 
-            console.log("User ID:", loggedInUser._id);
-            console.log("User Role:", loggedInUser.role);
+            console.log("LOGGED IN ROLE:", loggedInUser.role);
 
+            // Update AuthContext
             setUser(loggedInUser);
 
-            console.log("STEP 4: AuthContext updated");
+            // Redirect based on role
+            switch (loggedInUser.role) {
+                case "admin":
+                    navigate("/admin/dashboard", { replace: true });
+                    break;
 
-            const redirectPaths = {
-                admin: "/admin/dashboard",
-                provider: "/provider/dashboard",
-                user: "/",
-            };
+                case "provider":
+                    navigate("/provider/dashboard", { replace: true });
+                    break;
 
-            const redirectPath = redirectPaths[loggedInUser.role];
+                case "user":
+                    navigate("/", { replace: true });
+                    break;
 
-            if (!redirectPath) {
-                console.error("Invalid user role");
-
-                setUser(null);
-                setError("Invalid user role.");
-                return;
+                default:
+                    setUser(null);
+                    setError("Invalid user role.");
             }
 
-            console.log("STEP 5: Navigating to:", redirectPath);
-
-            navigate(redirectPath, {
-                replace: true,
-            });
-
-            console.log("LOGIN PROCESS COMPLETED");
-
         } catch (err: unknown) {
-            console.error("LOGIN FAILED");
+            console.error("LOGIN ERROR:", err);
 
             if (axios.isAxiosError(err)) {
-                console.error("Request URL:", err.config?.url);
-                console.error("HTTP Status:", err.response?.status);
-                console.error("Response Data:", err.response?.data);
-                console.error("Axios Error:", err.message);
-
-                const statusCode = err.response?.status;
+                const status = err.response?.status;
                 const message = err.response?.data?.message;
 
-                if (statusCode === 401) {
+                if (status === 401) {
                     setError("Invalid email or password.");
-                } else if (statusCode === 400) {
-                    setError(message || "Please enter valid details.");
-                } else if (statusCode === 403) {
-                    setError(message || "Your account access is restricted.");
+                } else if (status === 403) {
+                    setError(message || "Account access restricted.");
                 } else {
                     setError(message || "Unable to login. Please try again.");
                 }
-
             } else {
-                console.error("Unexpected error:", err);
-                setError("Something went wrong. Please try again.");
+                setError("Something went wrong.");
             }
 
         } finally {
             setLoading(false);
-            console.log("LOGIN REQUEST FINISHED");
-            console.log("================================");
         }
     };
 

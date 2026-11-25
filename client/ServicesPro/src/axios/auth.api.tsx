@@ -58,22 +58,17 @@ export const login = async (
     return data;
 };
 
-export const refreshToken = async () => {
-    const { data } = await api.post(
-        "/users/refreshToken"
-    );
-
+export const getUser = async () => {
+    const { data } = await api.get("/users/getUser");
     return data;
 };
 
-export const getUser = async () => {
-    const { data } = await api.get("/users/getUser");
-
+export const refreshToken = async () => {
+    const { data } = await api.post("/users/refreshToken");
     return data;
 };
 
 export const logout = async () => {
     const { data } = await api.post("/users/logout");
-
     return data;
 };
