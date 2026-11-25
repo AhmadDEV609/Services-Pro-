@@ -48,14 +48,36 @@ const Login = () => {
         try {
             setLoading(true);
 
+
             const response = await login({
                 email: form.email.trim().toLowerCase(),
                 password: form.password,
             });
 
-            console.log("LOGIN RESPONSE:", response);
-            console.log("USER:", response.user);
-            console.log("ROLE:", response.user?.role);
+            console.log("LOGIN API RESPONSE:", response);
+
+            if (!response.success) {
+                console.log("LOGIN FAILED");
+                setError(response.message);
+                return;
+            }
+
+            console.log("USER OBJECT:", response.user);
+            console.log("USER ROLE:", response.user?.role);
+
+            setUser(response.user);
+
+            const role = response.user?.role;
+
+            if (role === "admin") {
+                navigate("/admin/dashboard", { replace: true });
+            } else if (role === "provider") {
+                navigate("/provider/dashboard", { replace: true });
+            } else if (role === "user") {
+                navigate("/", { replace: true });
+            } else {
+                console.log("INVALID ROLE:", role);
+            }
 
             if (!response.success || !response.user) {
                 setError(response.message || "Login failed.");
