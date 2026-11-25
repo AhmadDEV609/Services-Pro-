@@ -1,20 +1,38 @@
 
-import { Schema, model, Types } from "mongoose";
+import {
+    Schema,
+    model,
+    Types,
+} from "mongoose";
 
-export type UserRole = "user" | "provider" | "admin";
+// USER ROLES
+export type UserRole =
+    | "user"
+    | "provider"
+    | "admin";
 
+// USER INTERFACE
 export interface IUser {
     _id: Types.ObjectId;
+
     name: string;
+
     age?: number;
+
     email: string;
+
     password: string;
+
     image: string;
+
     public_id?: string;
+
     role: UserRole;
+
     refreshtoken?: string;
 }
 
+// USER SCHEMA
 const userSchema = new Schema<IUser>(
     {
         name: {
@@ -58,7 +76,11 @@ const userSchema = new Schema<IUser>(
 
         role: {
             type: String,
-            enum: ["user", "provider", "admin"],
+            enum: [
+                "user",
+                "provider",
+                "admin",
+            ],
             required: true,
             default: "user",
         },
@@ -68,6 +90,10 @@ const userSchema = new Schema<IUser>(
     }
 );
 
-const User = model<IUser>("User", userSchema);
+// CREATE MODEL
+const User = model<IUser>(
+    "User",
+    userSchema
+);
 
 export default User;

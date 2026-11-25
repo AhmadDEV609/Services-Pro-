@@ -15,14 +15,36 @@ import auth from "../middleware/auth.middleware.js";
 
 const userRoute = Router();
 
-userRoute.post("/signup", upload.single("image"), signup);
+// Signup
+userRoute.post(
+    "/signup",
+    upload.single("image"),
+    signup
+);
 
-userRoute.post("/login", login);
+// Login
+userRoute.post(
+    "/login",
+    login
+);
 
-userRoute.post("/refreshToken", refreshTokenController);
+// Refresh access token
+userRoute.post(
+    "/refreshToken",
+    refreshTokenController
+);
 
-userRoute.get("/getUser", auth, getUser);
+// Get logged-in user
+userRoute.get(
+    "/getUser",
+    auth,
+    getUser
+);
 
-userRoute.post("/logout", logout);
+// Logout
+userRoute.post(
+    "/logout",
+    logout
+);
 
 export default userRoute;

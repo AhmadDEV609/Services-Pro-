@@ -32,53 +32,81 @@ export const AuthProvider = ({
 }: {
     children: ReactNode;
 }) => {
+
     const [user, setUserState] = useState<AuthUser | null>(null);
+
     const [loading, setLoading] = useState(true);
 
+    // Track authentication changes
     const authVersion = useRef(0);
 
+    // Update user globally
     const setUser = (newUser: AuthUser | null) => {
+
         authVersion.current += 1;
+
         setUserState(newUser);
     };
 
+    // Check logged-in user
     useEffect(() => {
+
         let mounted = true;
+
         const requestVersion = authVersion.current;
 
         const checkUser = async () => {
+
             try {
+
                 const response = await getUser();
 
                 if (
                     mounted &&
                     authVersion.current === requestVersion
                 ) {
+
                     setUserState(response.user ?? null);
+
                 }
+
             } catch (error) {
+
                 if (
                     mounted &&
                     authVersion.current === requestVersion
                 ) {
+
                     setUserState(null);
+
                 }
 
                 if (
                     axios.isAxiosError(error) &&
                     error.response?.status !== 401
                 ) {
-                    console.error("Auth check failed:", error);
+
+                    console.error(
+                        "Auth check failed:",
+                        error
+                    );
+
                 }
+
             } finally {
+
                 if (mounted) {
                     setLoading(false);
                 }
+
             }
         };
 
+        // Handle expired session
         const handleSessionExpired = () => {
+
             setUser(null);
+
         };
 
         window.addEventListener(
@@ -89,26 +117,38 @@ export const AuthProvider = ({
         checkUser();
 
         return () => {
+
             mounted = false;
 
             window.removeEventListener(
                 "auth:session-expired",
                 handleSessionExpired
             );
+
         };
+
     }, []);
 
+    // Logout function
     const logout = async () => {
+
         try {
+
             await logoutApi();
+
         } catch (error) {
+
             console.error("Logout failed:", error);
+
         } finally {
+
             setUser(null);
+
         }
     };
 
     return (
+
         <AuthContext.Provider
             value={{
                 user,
@@ -117,18 +157,25 @@ export const AuthProvider = ({
                 logout,
             }}
         >
+
             {children}
+
         </AuthContext.Provider>
+
     );
 };
 
+// Custom hook
 export const useAuth = () => {
+
     const context = useContext(AuthContext);
 
     if (!context) {
+
         throw new Error(
             "useAuth must be used inside AuthProvider"
         );
+
     }
 
     return context;

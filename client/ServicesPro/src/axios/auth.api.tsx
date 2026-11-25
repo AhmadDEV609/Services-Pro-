@@ -1,7 +1,7 @@
 
 import api from "./api";
 
-// User type
+// USER TYPE
 export interface AuthUser {
     _id: string;
     name: string;
@@ -10,14 +10,14 @@ export interface AuthUser {
     role: "user" | "provider" | "admin";
 }
 
-// Auth response type
+// AUTH RESPONSE TYPE
 export interface AuthResponse {
     success: boolean;
     message: string;
     user: AuthUser;
 }
 
-// Signup data
+// SIGNUP DATA
 export interface SignupData {
     name: string;
     email: string;
@@ -26,16 +26,17 @@ export interface SignupData {
     image: File;
 }
 
-// Login data
+// LOGIN DATA
 export interface LoginData {
     email: string;
     password: string;
 }
 
-// Signup API
+// SIGNUP API
 export const signup = async (
     userData: SignupData
 ): Promise<AuthResponse> => {
+
     const formData = new FormData();
 
     formData.append("name", userData.name);
@@ -52,10 +53,11 @@ export const signup = async (
     return data;
 };
 
-// Login API
+// LOGIN API
 export const login = async (
     userData: LoginData
 ): Promise<AuthResponse> => {
+
     const { data } = await api.post<AuthResponse>(
         "/users/login",
         userData
@@ -64,20 +66,35 @@ export const login = async (
     return data;
 };
 
-// Refresh Token API
+// GET LOGGED-IN USER
+export const getUser = async (): Promise<{
+    success: boolean;
+    user: AuthUser;
+}> => {
+
+    const { data } = await api.get(
+        "/users/getUser"
+    );
+
+    return data;
+};
+
+// REFRESH TOKEN API
 export const refreshToken = async () => {
-    const { data } = await api.post("/users/refreshToken");
+
+    const { data } = await api.post(
+        "/users/refreshToken"
+    );
+
     return data;
 };
 
-// Get Logged-in User API
-export const getUser = async () => {
-    const { data } = await api.get("/users/getUser");
-    return data;
-};
-
-// Logout API
+// LOGOUT API
 export const logout = async () => {
-    const { data } = await api.post("/users/logout");
+
+    const { data } = await api.post(
+        "/users/logout"
+    );
+
     return data;
 };

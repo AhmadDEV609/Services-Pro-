@@ -1,8 +1,10 @@
+
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const ProviderProtected = () => {
-    const { loading, user } = useAuth();
+
+    const { user, loading } = useAuth();
 
     if (loading) {
         return <h1>Loading...</h1>;
@@ -17,6 +19,6 @@ const ProviderProtected = () => {
     }
 
     return <Outlet />;
-}
+};
 
-export default ProviderProtected
+export default ProviderProtected;

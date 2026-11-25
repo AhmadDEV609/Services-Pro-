@@ -11,6 +11,10 @@ import BookingRoute from "./routes/Booking.route.js";
 
 const app = express();
 
+// Trust proxy
+app.set("trust proxy", 1);
+
+// CORS CONFIGURATION
 const corsOptions: cors.CorsOptions = {
     origin: true,
 
@@ -42,14 +46,21 @@ app.use(cors(corsOptions));
 // Stripe webhook
 app.use(
     "/api/v1/booking/webhook",
-    express.raw({ type: "application/json" })
+    express.raw({
+        type: "application/json",
+    })
 );
 
 // Body parsers
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Cookies
+app.use(
+    express.urlencoded({
+        extended: true,
+    })
+);
+
+// Cookie parser
 app.use(cookieParser());
 
 // Static files
@@ -57,7 +68,9 @@ app.use(express.static("public"));
 
 // Routes
 app.use("/api/v1/users", userRoute);
+
 app.use("/api/v1/provider", ProviderRoute);
+
 app.use("/api/v1/booking", BookingRoute);
 
 // Error handler

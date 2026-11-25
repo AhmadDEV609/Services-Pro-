@@ -2,12 +2,22 @@
 import jwt from "jsonwebtoken";
 import type { IUser } from "../models/User.model.js";
 
-const generateTokens = (user: IUser & { _id: unknown }) => {
-    const accessSecret = process.env.ACCESS_TOKEN_SECRET;
-    const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
+const generateTokens = (
+    user: IUser & { _id: unknown }
+) => {
+
+    const accessSecret =
+        process.env.ACCESS_TOKEN_SECRET;
+
+    const refreshSecret =
+        process.env.REFRESH_TOKEN_SECRET;
 
     if (!accessSecret || !refreshSecret) {
-        throw new Error("JWT secrets are missing in environment variables");
+
+        throw new Error(
+            "JWT secrets are missing in environment variables"
+        );
+
     }
 
     const payload = {
@@ -16,19 +26,29 @@ const generateTokens = (user: IUser & { _id: unknown }) => {
         role: user.role,
     };
 
+    // Access Token - 15 minutes
     const accessToken = jwt.sign(
         payload,
         accessSecret,
-        { expiresIn: "15m" }
+        {
+            expiresIn: "15m",
+        }
     );
 
+    // Refresh Token - 30 days
     const refreshToken = jwt.sign(
         payload,
         refreshSecret,
-        { expiresIn: "30d" }
+        {
+            expiresIn: "30d",
+        }
     );
 
-    return { accessToken, refreshToken };
+    return {
+        accessToken,
+        refreshToken,
+    };
+
 };
 
 export default generateTokens;
