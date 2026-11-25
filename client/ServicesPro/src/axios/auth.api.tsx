@@ -1,6 +1,7 @@
 
 import api from "./api";
 
+// User type
 export interface AuthUser {
     _id: string;
     name: string;
@@ -9,12 +10,14 @@ export interface AuthUser {
     role: "user" | "provider" | "admin";
 }
 
+// Auth response type
 export interface AuthResponse {
     success: boolean;
     message: string;
     user: AuthUser;
 }
 
+// Signup data
 export interface SignupData {
     name: string;
     email: string;
@@ -23,11 +26,13 @@ export interface SignupData {
     image: File;
 }
 
+// Login data
 export interface LoginData {
     email: string;
     password: string;
 }
 
+// Signup API
 export const signup = async (
     userData: SignupData
 ): Promise<AuthResponse> => {
@@ -47,6 +52,7 @@ export const signup = async (
     return data;
 };
 
+// Login API
 export const login = async (
     userData: LoginData
 ): Promise<AuthResponse> => {
@@ -58,16 +64,19 @@ export const login = async (
     return data;
 };
 
-export const getUser = async () => {
-    const { data } = await api.get("/users/getUser");
-    return data;
-};
-
+// Refresh Token API
 export const refreshToken = async () => {
     const { data } = await api.post("/users/refreshToken");
     return data;
 };
 
+// Get Logged-in User API
+export const getUser = async () => {
+    const { data } = await api.get("/users/getUser");
+    return data;
+};
+
+// Logout API
 export const logout = async () => {
     const { data } = await api.post("/users/logout");
     return data;

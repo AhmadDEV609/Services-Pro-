@@ -36,18 +36,19 @@ const Login = () => {
 
     const signupMessage = location.state?.message;
 
-
     const handleSubmit = async (
         e: FormEvent<HTMLFormElement>
     ) => {
         e.preventDefault();
-
-        if (loading) return;
-
         setError("");
 
-        if (!form.email.trim() || !form.password) {
-            setError("Please enter email and password.");
+        if (!form.email.trim()) {
+            setError("Please enter your email address.");
+            return;
+        }
+
+        if (!form.password) {
+            setError("Please enter your password.");
             return;
         }
 
@@ -59,55 +60,62 @@ const Login = () => {
                 password: form.password,
             });
 
-            console.log("LOGIN RESPONSE:", response);
-
             if (!response.success || !response.user) {
-                setError(response.message || "Login failed.");
+                setError(
+                    response.message || "Login failed."
+                );
                 return;
             }
 
             const loggedInUser = response.user;
 
-            console.log("LOGGED IN ROLE:", loggedInUser.role);
-
-            // Update AuthContext
+            // Update authentication context
             setUser(loggedInUser);
 
-            // Redirect based on role
-            switch (loggedInUser.role) {
-                case "admin":
-                    navigate("/admin/dashboard", { replace: true });
-                    break;
+            // Role based navigation
+            const redirectPaths = {
+                admin: "/admin/dashboard",
+                provider: "/provider/dashboard",
+                user: "/",
+            };
 
-                case "provider":
-                    navigate("/provider/dashboard", { replace: true });
-                    break;
+            const redirectPath =
+                redirectPaths[loggedInUser.role];
 
-                case "user":
-                    navigate("/", { replace: true });
-                    break;
-
-                default:
-                    setUser(null);
-                    setError("Invalid user role.");
+            if (!redirectPath) {
+                setUser(null);
+                setError("Invalid user role.");
+                return;
             }
 
+            navigate(redirectPath, {
+                replace: true,
+            });
+
         } catch (err: unknown) {
-            console.error("LOGIN ERROR:", err);
+            console.error("Login error:", err);
 
             if (axios.isAxiosError(err)) {
-                const status = err.response?.status;
+                const statusCode = err.response?.status;
                 const message = err.response?.data?.message;
 
-                if (status === 401) {
+                if (statusCode === 401) {
                     setError("Invalid email or password.");
-                } else if (status === 403) {
-                    setError(message || "Account access restricted.");
+                } else if (statusCode === 400) {
+                    setError(
+                        message || "Please enter email and password."
+                    );
+                } else if (statusCode === 403) {
+                    setError(
+                        message || "Your account access is restricted."
+                    );
                 } else {
-                    setError(message || "Unable to login. Please try again.");
+                    setError(
+                        message || "Unable to login. Please try again."
+                    );
                 }
             } else {
-                setError("Something went wrong.");
+                setError("Something went wrong. Please try again.");
             }
 
         } finally {
@@ -186,17 +194,11 @@ const Login = () => {
                         </div>
                     )}
 
-                    <form
-                        onSubmit={handleSubmit}
-                        className="mt-9 space-y-5"
-                    >
+                    <form onSubmit={handleSubmit} className="mt-9 space-y-5">
 
                         {/* EMAIL */}
                         <div>
-                            <label
-                                htmlFor="login-email"
-                                className="mb-2 block text-sm font-semibold"
-                            >
+                            <label htmlFor="login-email" className="mb-2 block text-sm font-semibold">
                                 Email address
                             </label>
 
@@ -228,10 +230,7 @@ const Login = () => {
                         {/* PASSWORD */}
                         <div>
                             <div className="mb-2 flex justify-between">
-                                <label
-                                    htmlFor="login-password"
-                                    className="text-sm font-semibold"
-                                >
+                                <label htmlFor="login-password" className="text-sm font-semibold">
                                     Password
                                 </label>
 
@@ -268,14 +267,8 @@ const Login = () => {
 
                                 <button
                                     type="button"
-                                    aria-label={
-                                        showPassword
-                                            ? "Hide password"
-                                            : "Show password"
-                                    }
-                                    onClick={() =>
-                                        setShowPassword(!showPassword)
-                                    }
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                    onClick={() => setShowPassword(!showPassword)}
                                     className="absolute right-4 top-1/2 -translate-y-1/2 text-[#756D69]"
                                 >
                                     {showPassword ? (
@@ -305,10 +298,7 @@ const Login = () => {
                         >
                             {loading ? (
                                 <>
-                                    <Loader2
-                                        size={20}
-                                        className="animate-spin"
-                                    />
+                                    <Loader2 size={20} className="animate-spin" />
                                     Logging in...
                                 </>
                             ) : (

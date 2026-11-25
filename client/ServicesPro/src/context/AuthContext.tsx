@@ -3,13 +3,15 @@ import {
     createContext,
     useContext,
     useEffect,
-    useRef,
     useState,
     type ReactNode,
 } from "react";
 
+import axios from "axios";
+
 import {
     getUser,
+    refreshToken,
     logout as logoutApi,
     type AuthUser,
 } from "../axios/auth.api";
@@ -30,63 +32,107 @@ export const AuthProvider = ({
 }: {
     children: ReactNode;
 }) => {
-    const [user, setUserState] = useState<AuthUser | null>(null);
+    const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
-
-    // Prevent old getUser requests from overwriting login state
-    const authVersion = useRef(0);
-
-    const setUser = (newUser: AuthUser | null) => {
-        authVersion.current += 1;
-        setUserState(newUser);
-        setLoading(false);
-    };
 
     useEffect(() => {
         let mounted = true;
-        const currentVersion = authVersion.current;
 
-        const checkAuth = async () => {
+        const checkUser = async () => {
             try {
+                // First check logged-in user
                 const response = await getUser();
 
-                if (
-                    mounted &&
-                    authVersion.current === currentVersion
-                ) {
-                    setUserState(response.user ?? null);
-                }
-            } catch (error) {
-                if (
-                    mounted &&
-                    authVersion.current === currentVersion
-                ) {
-                    setUserState(null);
+                if (mounted) {
+                    setUser(response.user ?? response.data?.user ?? null);
                 }
 
-                console.log("Session check:", error);
-            } finally {
+            } catch (error) {
+
                 if (
-                    mounted &&
-                    authVersion.current === currentVersion
+                    axios.isAxiosError(error) &&
+                    error.response?.status === 401
                 ) {
+                    try {
+                        // Try refreshing the session
+                        await refreshToken();
+
+                        // Get user after successful refresh
+                        const response = await getUser();
+
+                        if (mounted) {
+                            setUser(
+                                response.user ??
+                                response.data?.user ??
+                                null
+                            );
+                        }
+
+                    } catch (refreshError) {
+
+                        if (mounted) {
+                            setUser(null);
+                        }
+
+                        if (
+                            !axios.isAxiosError(refreshError) ||
+                            refreshError.response?.status !== 401
+                        ) {
+                            console.error(
+                                "Session refresh failed:",
+                                refreshError
+                            );
+                        }
+                    }
+
+                } else {
+                    if (mounted) {
+                        setUser(null);
+                    }
+
+                    console.error(
+                        "Authentication check failed:",
+                        error
+                    );
+                }
+
+            } finally {
+                if (mounted) {
                     setLoading(false);
                 }
             }
         };
 
-        checkAuth();
+        checkUser();
+
+        // Handle expired session
+        const handleSessionExpired = () => {
+            if (mounted) {
+                setUser(null);
+            }
+        };
+
+        window.addEventListener(
+            "auth:session-expired",
+            handleSessionExpired
+        );
 
         return () => {
             mounted = false;
+
+            window.removeEventListener(
+                "auth:session-expired",
+                handleSessionExpired
+            );
         };
     }, []);
 
-    const logout = async () => {
+    // Logout function
+    const handleLogout = async () => {
         try {
             await logoutApi();
         } catch (error) {
-            console.error("Logout failed:", error);
+            console.error("Logout API error:", error);
         } finally {
             setUser(null);
         }
@@ -98,7 +144,7 @@ export const AuthProvider = ({
                 user,
                 setUser,
                 loading,
-                logout,
+                logout: handleLogout,
             }}
         >
             {children}
@@ -106,6 +152,7 @@ export const AuthProvider = ({
     );
 };
 
+// Custom hook
 export const useAuth = () => {
     const context = useContext(AuthContext);
 
