@@ -102,7 +102,7 @@ const Login = () => {
             const redirectPaths = {
                 admin: "/admin/dashboard",
                 provider: "/provider/dashboard",
-                user: "/",
+                user: "/customer/explore",
             };
 
             const redirectPath = redirectPaths[loggedInUser.role];
