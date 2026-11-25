@@ -21,9 +21,9 @@ interface LoginBody {
     password: string;
 }
 
-type AppRole = "user" | "provider" | "admin";
+export type AppRole = "user" | "provider" | "admin";
 
-type AuthenticatedRequest = Request & {
+export type AuthenticatedRequest = Request & {
     user?: {
         _id: mongoose.Types.ObjectId;
         role: AppRole;
@@ -32,16 +32,13 @@ type AuthenticatedRequest = Request & {
 
 const isProduction = process.env.NODE_ENV === "production";
 
-// Cookie configuration
 const cookieOptions = {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: (isProduction ? "none" : "lax") as
-        "none" | "lax",
+    secure: true,
+    sameSite: "lax" as const,
     path: "/",
 };
 
-// Set authentication cookies
 const setAuthCookies = (
     res: Response,
     accessToken: string,
@@ -58,13 +55,12 @@ const setAuthCookies = (
     });
 };
 
-// Clear authentication cookies
 const clearAuthCookies = (res: Response) => {
     res.clearCookie("accessToken", cookieOptions);
     res.clearCookie("refreshToken", cookieOptions);
 };
 
-// Signup
+// SIGNUP
 const signup = asyncHandler(
     async (
         req: Request<{}, {}, SignupBody>,
@@ -73,17 +69,17 @@ const signup = asyncHandler(
         const { name, email, password, role } = req.body;
         const image = req.file;
 
+        if (!name?.trim() || !email?.trim() || !password || !role) {
+            return res.status(400).json({
+                success: false,
+                message: "Please fill all required fields",
+            });
+        }
+
         if (!image) {
             return res.status(400).json({
                 success: false,
                 message: "Please upload an image",
-            });
-        }
-
-        if (!name || !email || !password || !role) {
-            return res.status(400).json({
-                success: false,
-                message: "Please fill all required fields",
             });
         }
 
@@ -144,7 +140,7 @@ const signup = asyncHandler(
     }
 );
 
-// Login
+// LOGIN
 const login = asyncHandler(
     async (
         req: Request<{}, {}, LoginBody>,
@@ -170,12 +166,12 @@ const login = asyncHandler(
             });
         }
 
-        const confirmPassword = await bcrypt.compare(
+        const isPasswordCorrect = await bcrypt.compare(
             password,
             user.password
         );
 
-        if (!confirmPassword) {
+        if (!isPasswordCorrect) {
             return res.status(401).json({
                 success: false,
                 message: "Invalid email or password",
@@ -188,14 +184,12 @@ const login = asyncHandler(
         user.refreshtoken = refreshToken;
         await user.save();
 
-        // Remove any old cookies before setting new ones
         clearAuthCookies(res);
-
         setAuthCookies(res, accessToken, refreshToken);
 
         return res.status(200).json({
             success: true,
-            message: "User logged in successfully",
+            message: "Login successful",
             user: {
                 _id: user._id,
                 name: user.name,
@@ -207,7 +201,7 @@ const login = asyncHandler(
     }
 );
 
-// Refresh Token
+// REFRESH TOKEN
 const refreshTokenController = asyncHandler(
     async (req: Request, res: Response) => {
         const refreshToken = req.cookies?.refreshToken;
@@ -217,16 +211,15 @@ const refreshTokenController = asyncHandler(
 
             return res.status(401).json({
                 success: false,
-                message: "Refresh token not found. Please login again.",
+                message: "Refresh token not found",
+                code: "REFRESH_TOKEN_MISSING",
             });
         }
 
         const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
 
         if (!refreshSecret) {
-            throw new Error(
-                "REFRESH_TOKEN_SECRET is missing in .env"
-            );
+            throw new Error("REFRESH_TOKEN_SECRET is missing");
         }
 
         let decoded: jwt.JwtPayload;
@@ -239,14 +232,9 @@ const refreshTokenController = asyncHandler(
 
             if (
                 typeof verified === "string" ||
-                !verified.userId
+                typeof verified.userId !== "string"
             ) {
-                clearAuthCookies(res);
-
-                return res.status(401).json({
-                    success: false,
-                    message: "Invalid refresh token",
-                });
+                throw new Error("Invalid refresh token payload");
             }
 
             decoded = verified;
@@ -255,7 +243,17 @@ const refreshTokenController = asyncHandler(
 
             return res.status(401).json({
                 success: false,
-                message: "Refresh token expired or invalid. Please login again.",
+                message: "Refresh token expired or invalid",
+                code: "REFRESH_TOKEN_INVALID",
+            });
+        }
+
+        if (!mongoose.isValidObjectId(decoded.userId)) {
+            clearAuthCookies(res);
+
+            return res.status(401).json({
+                success: false,
+                message: "Invalid user ID in token",
             });
         }
 
@@ -267,7 +265,8 @@ const refreshTokenController = asyncHandler(
 
             return res.status(401).json({
                 success: false,
-                message: "Invalid session. Please login again.",
+                message: "Invalid refresh session",
+                code: "REFRESH_SESSION_INVALID",
             });
         }
 
@@ -292,7 +291,7 @@ const refreshTokenController = asyncHandler(
     }
 );
 
-// Get Logged-in User
+// GET LOGGED-IN USER
 const getUser = asyncHandler(
     async (
         req: AuthenticatedRequest,
@@ -329,24 +328,40 @@ const getUser = asyncHandler(
     }
 );
 
-// Logout
+// LOGOUT
 const logout = asyncHandler(
-    async (
-        req: AuthenticatedRequest,
-        res: Response
-    ) => {
-        const userId = req.user?._id;
+    async (req: Request, res: Response) => {
+        const refreshToken = req.cookies?.refreshToken;
+        const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
 
         try {
-            if (userId) {
-                await User.findByIdAndUpdate(userId, {
-                    $unset: {
-                        refreshtoken: 1,
-                    },
-                });
+            if (refreshToken && refreshSecret) {
+                try {
+                    const decoded = jwt.verify(
+                        refreshToken,
+                        refreshSecret
+                    );
+
+                    if (
+                        typeof decoded !== "string" &&
+                        typeof decoded.userId === "string" &&
+                        mongoose.isValidObjectId(decoded.userId)
+                    ) {
+                        await User.updateOne(
+                            {
+                                _id: decoded.userId,
+                                refreshtoken: refreshToken,
+                            },
+                            {
+                                $unset: { refreshtoken: 1 },
+                            }
+                        );
+                    }
+                } catch {
+
+                }
             }
         } finally {
-            // Always clear browser cookies
             clearAuthCookies(res);
         }
 

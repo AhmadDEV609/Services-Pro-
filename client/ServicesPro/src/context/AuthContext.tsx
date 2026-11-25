@@ -11,7 +11,6 @@ import axios from "axios";
 
 import {
     getUser,
-    refreshToken,
     logout as logoutApi,
     type AuthUser,
 } from "../axios/auth.api";
@@ -40,62 +39,26 @@ export const AuthProvider = ({
 
         const checkUser = async () => {
             try {
-                // First check logged-in user
+                // Axios interceptor handles token refresh automatically
                 const response = await getUser();
 
                 if (mounted) {
-                    setUser(response.user ?? response.data?.user ?? null);
+                    setUser(response.user ?? null);
                 }
-
             } catch (error) {
+                if (mounted) {
+                    setUser(null);
+                }
 
                 if (
                     axios.isAxiosError(error) &&
-                    error.response?.status === 401
+                    error.response?.status !== 401
                 ) {
-                    try {
-                        // Try refreshing the session
-                        await refreshToken();
-
-                        // Get user after successful refresh
-                        const response = await getUser();
-
-                        if (mounted) {
-                            setUser(
-                                response.user ??
-                                response.data?.user ??
-                                null
-                            );
-                        }
-
-                    } catch (refreshError) {
-
-                        if (mounted) {
-                            setUser(null);
-                        }
-
-                        if (
-                            !axios.isAxiosError(refreshError) ||
-                            refreshError.response?.status !== 401
-                        ) {
-                            console.error(
-                                "Session refresh failed:",
-                                refreshError
-                            );
-                        }
-                    }
-
-                } else {
-                    if (mounted) {
-                        setUser(null);
-                    }
-
                     console.error(
                         "Authentication check failed:",
                         error
                     );
                 }
-
             } finally {
                 if (mounted) {
                     setLoading(false);
@@ -103,9 +66,6 @@ export const AuthProvider = ({
             }
         };
 
-        checkUser();
-
-        // Handle expired session
         const handleSessionExpired = () => {
             if (mounted) {
                 setUser(null);
@@ -117,6 +77,8 @@ export const AuthProvider = ({
             handleSessionExpired
         );
 
+        checkUser();
+
         return () => {
             mounted = false;
 
@@ -127,7 +89,6 @@ export const AuthProvider = ({
         };
     }, []);
 
-    // Logout function
     const handleLogout = async () => {
         try {
             await logoutApi();
@@ -152,7 +113,6 @@ export const AuthProvider = ({
     );
 };
 
-// Custom hook
 export const useAuth = () => {
     const context = useContext(AuthContext);
 

@@ -3,11 +3,17 @@ import axios, {
     type InternalAxiosRequestConfig,
 } from "axios";
 
-interface RetryRequestConfig extends InternalAxiosRequestConfig {
-    _retry?: boolean;
+declare module "axios" {
+    interface AxiosRequestConfig {
+        skipAuthRefresh?: boolean;
+    }
+
+    interface InternalAxiosRequestConfig {
+        skipAuthRefresh?: boolean;
+        _retry?: boolean;
+    }
 }
 
-// Use frontend's own domain through Vercel proxy
 const baseURL = "/api/v1";
 
 const api = axios.create({
@@ -27,33 +33,37 @@ api.interceptors.response.use(
 
     async (error) => {
         const originalRequest =
-            error.config as RetryRequestConfig | undefined;
+            error.config as InternalAxiosRequestConfig | undefined;
 
-        if (!originalRequest || error.response?.status !== 401) {
+        if (
+            !originalRequest ||
+            error.response?.status !== 401
+        ) {
             return Promise.reject(error);
         }
 
         const url = originalRequest.url || "";
 
-        // Don't refresh authentication endpoints
-        if (
-            url.includes("/users/login") ||
-            url.includes("/users/signup") ||
-            url.includes("/users/refreshToken") ||
-            url.includes("/users/logout")
-        ) {
-            return Promise.reject(error);
-        }
+        const excludedEndpoints = [
+            "/users/login",
+            "/users/signup",
+            "/users/refreshToken",
+            "/users/logout",
+        ];
 
-        // Prevent infinite retry
-        if (originalRequest._retry) {
+        if (
+            originalRequest.skipAuthRefresh ||
+            originalRequest._retry ||
+            excludedEndpoints.some((endpoint) =>
+                url.includes(endpoint)
+            )
+        ) {
             return Promise.reject(error);
         }
 
         originalRequest._retry = true;
 
         try {
-            // Share one refresh request between simultaneous 401s
             if (!refreshPromise) {
                 refreshPromise = refreshApi
                     .post("/users/refreshToken")
@@ -65,7 +75,6 @@ api.interceptors.response.use(
 
             await refreshPromise;
 
-            // Retry original request
             return api(originalRequest);
 
         } catch (refreshError) {

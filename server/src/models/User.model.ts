@@ -1,9 +1,10 @@
 
-import { Schema, model } from "mongoose";
+import { Schema, model, Types } from "mongoose";
 
 export type UserRole = "user" | "provider" | "admin";
 
 export interface IUser {
+    _id: Types.ObjectId;
     name: string;
     age?: number;
     email: string;
@@ -43,6 +44,7 @@ const userSchema = new Schema<IUser>(
 
         image: {
             type: String,
+            default: "",
         },
 
         public_id: {
@@ -61,7 +63,9 @@ const userSchema = new Schema<IUser>(
             default: "user",
         },
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+    }
 );
 
 const User = model<IUser>("User", userSchema);

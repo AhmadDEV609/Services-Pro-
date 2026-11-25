@@ -5,18 +5,14 @@ import mongoose from "mongoose";
 
 import asyncHandler from "../helper/asynHandler.js";
 import User from "../models/User.model.js";
-import generateTokens from "../helper/generateTokens.js";
-type AppRole = "user" | "provider" | "admin";
-
-type AuthenticatedRequest = Request & {
-    user?: {
-        _id: mongoose.Types.ObjectId;
-        role: AppRole;
-    };
-};
+import type { AuthenticatedRequest } from "../controller/User.controller.js";
 
 const auth = asyncHandler(
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (
+        req: Request,
+        res: Response,
+        next: NextFunction
+    ) => {
         const authReq = req as AuthenticatedRequest;
         const token = req.cookies?.accessToken;
 
@@ -33,10 +29,22 @@ const auth = asyncHandler(
             throw new Error("ACCESS_TOKEN_SECRET is missing");
         }
 
-        let decoded: string | jwt.JwtPayload;
+        let decoded: jwt.JwtPayload;
 
         try {
-            decoded = jwt.verify(token, secret);
+            const verified = jwt.verify(token, secret);
+
+            if (
+                typeof verified === "string" ||
+                typeof verified.userId !== "string"
+            ) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Invalid token payload",
+                });
+            }
+
+            decoded = verified;
         } catch {
             return res.status(401).json({
                 success: false,
@@ -44,17 +52,15 @@ const auth = asyncHandler(
             });
         }
 
-        if (
-            typeof decoded === "string" ||
-            typeof decoded.userId !== "string"
-        ) {
+        if (!mongoose.isValidObjectId(decoded.userId)) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid token payload",
+                message: "Invalid user ID",
             });
         }
 
-        const user = await User.findById(decoded.userId).select("_id role");
+        const user = await User.findById(decoded.userId)
+            .select("_id role");
 
         if (!user) {
             return res.status(401).json({
@@ -96,58 +102,5 @@ const adminOnly = (
     return next();
 };
 
-
-const generateNewToken = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const refreshToken = req.cookies?.refreshToken
-    if (!refreshToken) {
-        return res.status(404).json({
-            success: false,
-            message: "token is not found",
-        });
-    }
-    const refresh_token = process.env.REFRESH_TOKEN_SECRET
-    if (!refresh_token) {
-        return res.status(404).json({
-            success: false,
-            message: "token is not found",
-        });
-    }
-    const decode = jwt.verify(refreshToken, refresh_token)
-    if (typeof decode === "string" || typeof decode.id !== "string") {
-        return res.status(404).json({
-            success: false,
-            message: "invalid type of token",
-        });
-    }
-    const user = await User.findById(decode.id)
-    if (!user) {
-        return res.status(404).json({
-            success: false,
-            message: "user not found",
-        });
-    }
-    if (user.refreshtoken !== refreshToken) {
-        return res.status(404).json({
-            success: false,
-            message: "token is not found",
-        });
-    }
-
-    const { accessToken } = generateTokens(user)
-
-    res.cookie('accessToken', accessToken, {
-        maxAge: 1000 * 60 * 15,
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-    })
-
-    res.status(200).json({
-        message: 'token is updated',
-    })
-
-})
-
 export { adminOnly };
 export default auth;
-export { generateNewToken }

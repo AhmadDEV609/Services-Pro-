@@ -1,8 +1,9 @@
 
 import express from "express";
-import { error } from "./middleware/error.middleware.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+
+import { error } from "./middleware/error.middleware.js";
 
 import userRoute from "./routes/user.route.js";
 import ProviderRoute from "./routes/Provider.route.js";
@@ -10,32 +11,8 @@ import BookingRoute from "./routes/Booking.route.js";
 
 const app = express();
 
-// Allowed frontend origins
-const allowedOrigins = [
-    "https://services-pro-frontend.vercel.app",
-    "http://localhost:5173",
-];
-
-// CORS Configuration
-const corsOptions = {
-    origin: (origin: any, callback: any) => {
-
-        // Allow requests without origin (Postman, server-side)
-        if (!origin) {
-            return callback(null, true);
-        }
-
-        // Check allowed origins
-        if (allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-
-        console.error("CORS blocked for origin:", origin);
-
-        return callback(
-            new Error(`CORS blocked for origin: ${origin}`)
-        );
-    },
+const corsOptions: cors.CorsOptions = {
+    origin: true,
 
     credentials: true,
 
@@ -59,13 +36,10 @@ const corsOptions = {
     optionsSuccessStatus: 204,
 };
 
-// Apply CORS globally
+// CORS
 app.use(cors(corsOptions));
 
-// Handle preflight requests
-app.options(/.*/, cors(corsOptions));
-
-// Stripe webhook raw body
+// Stripe webhook
 app.use(
     "/api/v1/booking/webhook",
     express.raw({ type: "application/json" })
@@ -75,13 +49,13 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Cookie parser
+// Cookies
 app.use(cookieParser());
 
 // Static files
 app.use(express.static("public"));
 
-// API Routes
+// Routes
 app.use("/api/v1/users", userRoute);
 app.use("/api/v1/provider", ProviderRoute);
 app.use("/api/v1/booking", BookingRoute);
