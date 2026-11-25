@@ -32,12 +32,15 @@ export type AuthenticatedRequest = Request & {
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// Cross-site frontend/backend deployment requires SameSite=None + HTTPS.
 const cookieOptions = {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "lax" as const,
+    sameSite: (isProduction ? "none" : "lax") as
+        "none" | "lax",
     path: "/",
 };
+
 const setAuthCookies = (
     res: Response,
     accessToken: string,
@@ -60,11 +63,8 @@ const clearAuthCookies = (res: Response) => {
 };
 
 // SIGNUP
-const signup = asyncHandler(
-    async (
-        req: Request<{}, {}, SignupBody>,
-        res: Response
-    ) => {
+export const signup = asyncHandler(
+    async (req: Request<{}, {}, SignupBody>, res: Response) => {
         const { name, email, password, role } = req.body;
         const image = req.file;
 
@@ -109,7 +109,7 @@ const signup = asyncHandler(
             });
         }
 
-        const hashPassword = await bcrypt.hash(password, 12);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         const result = await uploadToCloudinary(
             image.buffer,
@@ -119,7 +119,7 @@ const signup = asyncHandler(
         const user = await User.create({
             name: name.trim(),
             email: normalizedEmail,
-            password: hashPassword,
+            password: hashedPassword,
             image: result.secure_url,
             public_id: result.public_id,
             role: role as UserRole,
@@ -140,11 +140,8 @@ const signup = asyncHandler(
 );
 
 // LOGIN
-const login = asyncHandler(
-    async (
-        req: Request<{}, {}, LoginBody>,
-        res: Response
-    ) => {
+export const login = asyncHandler(
+    async (req: Request<{}, {}, LoginBody>, res: Response) => {
         const { email, password } = req.body;
 
         if (!email?.trim() || !password) {
@@ -165,25 +162,23 @@ const login = asyncHandler(
             });
         }
 
-        const isPasswordCorrect = await bcrypt.compare(
+        const passwordCorrect = await bcrypt.compare(
             password,
             user.password
         );
 
-        if (!isPasswordCorrect) {
+        if (!passwordCorrect) {
             return res.status(401).json({
                 success: false,
                 message: "Invalid email or password",
             });
         }
 
-        const { accessToken, refreshToken } =
-            generateTokens(user);
+        const { accessToken, refreshToken } = generateTokens(user);
 
         user.refreshtoken = refreshToken;
         await user.save();
 
-        clearAuthCookies(res);
         setAuthCookies(res, accessToken, refreshToken);
 
         return res.status(200).json({
@@ -201,11 +196,12 @@ const login = asyncHandler(
 );
 
 // REFRESH TOKEN
-const refreshTokenController = asyncHandler(
+export const refreshTokenController = asyncHandler(
     async (req: Request, res: Response) => {
-        const refreshToken = req.cookies?.refreshToken;
+        const token = req.cookies?.refreshToken;
+        const secret = process.env.REFRESH_TOKEN_SECRET;
 
-        if (!refreshToken) {
+        if (!token) {
             clearAuthCookies(res);
 
             return res.status(401).json({
@@ -215,25 +211,20 @@ const refreshTokenController = asyncHandler(
             });
         }
 
-        const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
-
-        if (!refreshSecret) {
+        if (!secret) {
             throw new Error("REFRESH_TOKEN_SECRET is missing");
         }
 
         let decoded: jwt.JwtPayload;
 
         try {
-            const verified = jwt.verify(
-                refreshToken,
-                refreshSecret
-            );
+            const verified = jwt.verify(token, secret);
 
             if (
                 typeof verified === "string" ||
                 typeof verified.userId !== "string"
             ) {
-                throw new Error("Invalid refresh token payload");
+                throw new Error("Invalid token payload");
             }
 
             decoded = verified;
@@ -252,14 +243,14 @@ const refreshTokenController = asyncHandler(
 
             return res.status(401).json({
                 success: false,
-                message: "Invalid user ID in token",
+                message: "Invalid user ID",
             });
         }
 
         const user = await User.findById(decoded.userId)
             .select("+refreshtoken");
 
-        if (!user || user.refreshtoken !== refreshToken) {
+        if (!user || user.refreshtoken !== token) {
             clearAuthCookies(res);
 
             return res.status(401).json({
@@ -269,18 +260,15 @@ const refreshTokenController = asyncHandler(
             });
         }
 
-        const {
-            accessToken,
-            refreshToken: newRefreshToken,
-        } = generateTokens(user);
+        const tokens = generateTokens(user);
 
-        user.refreshtoken = newRefreshToken;
+        user.refreshtoken = tokens.refreshToken;
         await user.save();
 
         setAuthCookies(
             res,
-            accessToken,
-            newRefreshToken
+            tokens.accessToken,
+            tokens.refreshToken
         );
 
         return res.status(200).json({
@@ -290,12 +278,9 @@ const refreshTokenController = asyncHandler(
     }
 );
 
-// GET LOGGED-IN USER
-const getUser = asyncHandler(
-    async (
-        req: AuthenticatedRequest,
-        res: Response
-    ) => {
+// GET LOGGED IN USER
+export const getUser = asyncHandler(
+    async (req: AuthenticatedRequest, res: Response) => {
         const userId = req.user?._id;
 
         if (!userId) {
@@ -328,41 +313,36 @@ const getUser = asyncHandler(
 );
 
 // LOGOUT
-const logout = asyncHandler(
+export const logout = asyncHandler(
     async (req: Request, res: Response) => {
-        const refreshToken = req.cookies?.refreshToken;
-        const refreshSecret = process.env.REFRESH_TOKEN_SECRET;
+        const token = req.cookies?.refreshToken;
+        const secret = process.env.REFRESH_TOKEN_SECRET;
 
-        try {
-            if (refreshToken && refreshSecret) {
-                try {
-                    const decoded = jwt.verify(
-                        refreshToken,
-                        refreshSecret
+        if (token && secret) {
+            try {
+                const decoded = jwt.verify(token, secret);
+
+                if (
+                    typeof decoded !== "string" &&
+                    typeof decoded.userId === "string" &&
+                    mongoose.isValidObjectId(decoded.userId)
+                ) {
+                    await User.updateOne(
+                        {
+                            _id: decoded.userId,
+                            refreshtoken: token,
+                        },
+                        {
+                            $unset: { refreshtoken: 1 },
+                        }
                     );
-
-                    if (
-                        typeof decoded !== "string" &&
-                        typeof decoded.userId === "string" &&
-                        mongoose.isValidObjectId(decoded.userId)
-                    ) {
-                        await User.updateOne(
-                            {
-                                _id: decoded.userId,
-                                refreshtoken: refreshToken,
-                            },
-                            {
-                                $unset: { refreshtoken: 1 },
-                            }
-                        );
-                    }
-                } catch {
-
                 }
+            } catch (error) {
+                console.error("Logout token verification:", error);
             }
-        } finally {
-            clearAuthCookies(res);
         }
+
+        clearAuthCookies(res);
 
         return res.status(200).json({
             success: true,
@@ -370,11 +350,3 @@ const logout = asyncHandler(
         });
     }
 );
-
-export {
-    signup,
-    login,
-    refreshTokenController,
-    getUser,
-    logout,
-};

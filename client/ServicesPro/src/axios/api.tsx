@@ -4,12 +4,7 @@ import axios, {
 } from "axios";
 
 declare module "axios" {
-    interface AxiosRequestConfig {
-        skipAuthRefresh?: boolean;
-    }
-
     interface InternalAxiosRequestConfig {
-        skipAuthRefresh?: boolean;
         _retry?: boolean;
     }
 }
@@ -35,16 +30,13 @@ api.interceptors.response.use(
         const originalRequest =
             error.config as InternalAxiosRequestConfig | undefined;
 
-        if (
-            !originalRequest ||
-            error.response?.status !== 401
-        ) {
+        if (!originalRequest || error.response?.status !== 401) {
             return Promise.reject(error);
         }
 
         const url = originalRequest.url || "";
 
-        const excludedEndpoints = [
+        const excluded = [
             "/users/login",
             "/users/signup",
             "/users/refreshToken",
@@ -52,11 +44,8 @@ api.interceptors.response.use(
         ];
 
         if (
-            originalRequest.skipAuthRefresh ||
             originalRequest._retry ||
-            excludedEndpoints.some((endpoint) =>
-                url.includes(endpoint)
-            )
+            excluded.some((path) => url.includes(path))
         ) {
             return Promise.reject(error);
         }
@@ -76,8 +65,9 @@ api.interceptors.response.use(
             await refreshPromise;
 
             return api(originalRequest);
-
         } catch (refreshError) {
+            refreshPromise = null;
+
             window.dispatchEvent(
                 new Event("auth:session-expired")
             );

@@ -3,6 +3,7 @@ import {
     createContext,
     useContext,
     useEffect,
+    useRef,
     useState,
     type ReactNode,
 } from "react";
@@ -11,7 +12,6 @@ import axios from "axios";
 
 import {
     getUser,
-    refreshToken,
     logout as logoutApi,
     type AuthUser,
 } from "../axios/auth.api";
@@ -32,70 +32,44 @@ export const AuthProvider = ({
 }: {
     children: ReactNode;
 }) => {
-    const [user, setUser] = useState<AuthUser | null>(null);
+    const [user, setUserState] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const authVersion = useRef(0);
+
+    const setUser = (newUser: AuthUser | null) => {
+        authVersion.current += 1;
+        setUserState(newUser);
+    };
 
     useEffect(() => {
         let mounted = true;
+        const requestVersion = authVersion.current;
 
         const checkUser = async () => {
             try {
-                // First check logged-in user
                 const response = await getUser();
 
-                if (mounted) {
-                    setUser(response.user ?? response.data?.user ?? null);
+                if (
+                    mounted &&
+                    authVersion.current === requestVersion
+                ) {
+                    setUserState(response.user ?? null);
                 }
-
             } catch (error) {
+                if (
+                    mounted &&
+                    authVersion.current === requestVersion
+                ) {
+                    setUserState(null);
+                }
 
                 if (
                     axios.isAxiosError(error) &&
-                    error.response?.status === 401
+                    error.response?.status !== 401
                 ) {
-                    try {
-                        // Try refreshing the session
-                        await refreshToken();
-
-                        // Get user after successful refresh
-                        const response = await getUser();
-
-                        if (mounted) {
-                            setUser(
-                                response.user ??
-                                response.data?.user ??
-                                null
-                            );
-                        }
-
-                    } catch (refreshError) {
-
-                        if (mounted) {
-                            setUser(null);
-                        }
-
-                        if (
-                            !axios.isAxiosError(refreshError) ||
-                            refreshError.response?.status !== 401
-                        ) {
-                            console.error(
-                                "Session refresh failed:",
-                                refreshError
-                            );
-                        }
-                    }
-
-                } else {
-                    if (mounted) {
-                        setUser(null);
-                    }
-
-                    console.error(
-                        "Authentication check failed:",
-                        error
-                    );
+                    console.error("Auth check failed:", error);
                 }
-
             } finally {
                 if (mounted) {
                     setLoading(false);
@@ -103,19 +77,16 @@ export const AuthProvider = ({
             }
         };
 
-        checkUser();
-
-        // Handle expired session
         const handleSessionExpired = () => {
-            if (mounted) {
-                setUser(null);
-            }
+            setUser(null);
         };
 
         window.addEventListener(
             "auth:session-expired",
             handleSessionExpired
         );
+
+        checkUser();
 
         return () => {
             mounted = false;
@@ -127,12 +98,11 @@ export const AuthProvider = ({
         };
     }, []);
 
-    // Logout function
-    const handleLogout = async () => {
+    const logout = async () => {
         try {
             await logoutApi();
         } catch (error) {
-            console.error("Logout API error:", error);
+            console.error("Logout failed:", error);
         } finally {
             setUser(null);
         }
@@ -144,7 +114,7 @@ export const AuthProvider = ({
                 user,
                 setUser,
                 loading,
-                logout: handleLogout,
+                logout,
             }}
         >
             {children}
@@ -152,7 +122,6 @@ export const AuthProvider = ({
     );
 };
 
-// Custom hook
 export const useAuth = () => {
     const context = useContext(AuthContext);
 

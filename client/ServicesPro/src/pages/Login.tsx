@@ -40,17 +40,10 @@ const Login = () => {
         e: FormEvent<HTMLFormElement>
     ) => {
         e.preventDefault();
+
+        if (loading) return;
+
         setError("");
-
-        if (!form.email.trim()) {
-            setError("Please enter your email address.");
-            return;
-        }
-
-        if (!form.password) {
-            setError("Please enter your password.");
-            return;
-        }
 
         try {
             setLoading(true);
@@ -61,33 +54,29 @@ const Login = () => {
             });
 
             if (!response.success || !response.user) {
-                setError(
-                    response.message || "Login failed."
-                );
+                setError(response.message || "Login failed.");
                 return;
             }
 
             const loggedInUser = response.user;
 
-            // Update authentication context
-            setUser(loggedInUser);
-
-            // Role based navigation
-            const redirectPaths = {
+            const redirectPaths: Record<string, string> = {
                 admin: "/admin/dashboard",
                 provider: "/provider/dashboard",
                 user: "/",
             };
 
-            const redirectPath =
-                redirectPaths[loggedInUser.role];
+            const redirectPath = redirectPaths[loggedInUser.role];
 
             if (!redirectPath) {
-                setUser(null);
                 setError("Invalid user role.");
                 return;
             }
 
+            // Update global authentication state
+            setUser(loggedInUser);
+
+            // Navigate after updating authentication state
             navigate(redirectPath, {
                 replace: true,
             });
@@ -96,32 +85,24 @@ const Login = () => {
             console.error("Login error:", err);
 
             if (axios.isAxiosError(err)) {
-                const statusCode = err.response?.status;
+                const status = err.response?.status;
                 const message = err.response?.data?.message;
 
-                if (statusCode === 401) {
+                if (status === 401) {
                     setError("Invalid email or password.");
-                } else if (statusCode === 400) {
-                    setError(
-                        message || "Please enter email and password."
-                    );
-                } else if (statusCode === 403) {
-                    setError(
-                        message || "Your account access is restricted."
-                    );
+                } else if (status === 403) {
+                    setError(message || "Account access restricted.");
                 } else {
-                    setError(
-                        message || "Unable to login. Please try again."
-                    );
+                    setError(message || "Unable to login. Please try again.");
                 }
             } else {
-                setError("Something went wrong. Please try again.");
+                setError("Something went wrong.");
             }
-
         } finally {
             setLoading(false);
         }
     };
+
 
     return (
         <main className="min-h-screen bg-[#F8FAF9] text-[#34241F] lg:grid lg:grid-cols-2">
