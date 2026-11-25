@@ -4,6 +4,7 @@ import {
     useContext,
     useEffect,
     useState,
+    useRef,
     type ReactNode,
 } from "react";
 
@@ -34,19 +35,44 @@ export const AuthProvider = ({
     const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // Prevent old requests from overwriting newer login state
+    const authVersion = useRef(0);
+
+    const updateUser = (newUser: AuthUser | null) => {
+        authVersion.current += 1;
+        setUser(newUser);
+    };
+
     useEffect(() => {
         let mounted = true;
+        const requestVersion = authVersion.current;
 
         const checkUser = async () => {
             try {
-                // Axios interceptor handles token refresh automatically
                 const response = await getUser();
 
-                if (mounted) {
-                    setUser(response.user ?? null);
+                if (
+                    mounted &&
+                    authVersion.current === requestVersion
+                ) {
+                    const loggedUser =
+                        response.user ??
+                        response.data?.user ??
+                        null;
+
+                    setUser(loggedUser);
+
+                    console.log(
+                        "AUTH CHECK USER:",
+                        loggedUser
+                    );
                 }
+
             } catch (error) {
-                if (mounted) {
+                if (
+                    mounted &&
+                    authVersion.current === requestVersion
+                ) {
                     setUser(null);
                 }
 
@@ -55,10 +81,11 @@ export const AuthProvider = ({
                     error.response?.status !== 401
                 ) {
                     console.error(
-                        "Authentication check failed:",
+                        "Authentication error:",
                         error
                     );
                 }
+
             } finally {
                 if (mounted) {
                     setLoading(false);
@@ -67,9 +94,7 @@ export const AuthProvider = ({
         };
 
         const handleSessionExpired = () => {
-            if (mounted) {
-                setUser(null);
-            }
+            updateUser(null);
         };
 
         window.addEventListener(
@@ -93,9 +118,9 @@ export const AuthProvider = ({
         try {
             await logoutApi();
         } catch (error) {
-            console.error("Logout API error:", error);
+            console.error("Logout error:", error);
         } finally {
-            setUser(null);
+            updateUser(null);
         }
     };
 
@@ -103,7 +128,7 @@ export const AuthProvider = ({
         <AuthContext.Provider
             value={{
                 user,
-                setUser,
+                setUser: updateUser,
                 loading,
                 logout: handleLogout,
             }}
