@@ -34,11 +34,10 @@ const isProduction = process.env.NODE_ENV === "production";
 
 const cookieOptions = {
     httpOnly: true,
-    secure: true,
+    secure: isProduction,
     sameSite: "lax" as const,
     path: "/",
 };
-
 const setAuthCookies = (
     res: Response,
     accessToken: string,

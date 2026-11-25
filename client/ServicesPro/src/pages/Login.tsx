@@ -40,86 +40,120 @@ const Login = () => {
         e: FormEvent<HTMLFormElement>
     ) => {
         e.preventDefault();
+
+        console.log("================================");
+        console.log("LOGIN FORM SUBMITTED");
+        console.log("================================");
+
         setError("");
 
         if (!form.email.trim()) {
+            console.error("Validation failed: Email required");
             setError("Please enter your email address.");
             return;
         }
 
         if (!form.password) {
+            console.error("Validation failed: Password required");
             setError("Please enter your password.");
+            return;
+        }
+
+        if (loading) {
+            console.warn("Login already in progress");
             return;
         }
 
         try {
             setLoading(true);
 
-            const response = await login({
+            const loginData = {
                 email: form.email.trim().toLowerCase(),
                 password: form.password,
-            });
+            };
+
+            console.log("STEP 1: Sending login request");
+            console.log("Email:", loginData.email);
+            console.log("Endpoint: POST /api/v1/users/login");
+
+            const response = await login(loginData);
+
+            console.log("STEP 2: Login API response received");
+            console.log("Response:", response);
 
             if (!response.success || !response.user) {
-                setError(
-                    response.message || "Login failed."
-                );
+                console.error("Login unsuccessful:", response.message);
+
+                setError(response.message || "Login failed.");
                 return;
             }
 
+            console.log("STEP 3: Login successful");
+
             const loggedInUser = response.user;
 
-            // Update authentication context
+            console.log("User ID:", loggedInUser._id);
+            console.log("User Role:", loggedInUser.role);
+
             setUser(loggedInUser);
 
-            // Role based navigation
+            console.log("STEP 4: AuthContext updated");
+
             const redirectPaths = {
                 admin: "/admin/dashboard",
                 provider: "/provider/dashboard",
                 user: "/",
             };
 
-            const redirectPath =
-                redirectPaths[loggedInUser.role];
+            const redirectPath = redirectPaths[loggedInUser.role];
 
             if (!redirectPath) {
+                console.error("Invalid user role");
+
                 setUser(null);
                 setError("Invalid user role.");
                 return;
             }
 
+            console.log("STEP 5: Navigating to:", redirectPath);
+
             navigate(redirectPath, {
                 replace: true,
             });
 
+            console.log("LOGIN PROCESS COMPLETED");
+
         } catch (err: unknown) {
-            console.error("Login error:", err);
+            console.error("LOGIN FAILED");
 
             if (axios.isAxiosError(err)) {
+                console.error("Request URL:", err.config?.url);
+                console.error("HTTP Status:", err.response?.status);
+                console.error("Response Data:", err.response?.data);
+                console.error("Axios Error:", err.message);
+
                 const statusCode = err.response?.status;
                 const message = err.response?.data?.message;
 
                 if (statusCode === 401) {
                     setError("Invalid email or password.");
                 } else if (statusCode === 400) {
-                    setError(
-                        message || "Please enter email and password."
-                    );
+                    setError(message || "Please enter valid details.");
                 } else if (statusCode === 403) {
-                    setError(
-                        message || "Your account access is restricted."
-                    );
+                    setError(message || "Your account access is restricted.");
                 } else {
-                    setError(
-                        message || "Unable to login. Please try again."
-                    );
+                    setError(message || "Unable to login. Please try again.");
                 }
+
             } else {
+                console.error("Unexpected error:", err);
                 setError("Something went wrong. Please try again.");
             }
 
         } finally {
             setLoading(false);
+            console.log("LOGIN REQUEST FINISHED");
+            console.log("================================");
         }
     };
 
@@ -194,11 +228,17 @@ const Login = () => {
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="mt-9 space-y-5">
+                    <form
+                        onSubmit={handleSubmit}
+                        className="mt-9 space-y-5"
+                    >
 
                         {/* EMAIL */}
                         <div>
-                            <label htmlFor="login-email" className="mb-2 block text-sm font-semibold">
+                            <label
+                                htmlFor="login-email"
+                                className="mb-2 block text-sm font-semibold"
+                            >
                                 Email address
                             </label>
 
@@ -230,7 +270,10 @@ const Login = () => {
                         {/* PASSWORD */}
                         <div>
                             <div className="mb-2 flex justify-between">
-                                <label htmlFor="login-password" className="text-sm font-semibold">
+                                <label
+                                    htmlFor="login-password"
+                                    className="text-sm font-semibold"
+                                >
                                     Password
                                 </label>
 
@@ -267,8 +310,14 @@ const Login = () => {
 
                                 <button
                                     type="button"
-                                    aria-label={showPassword ? "Hide password" : "Show password"}
-                                    onClick={() => setShowPassword(!showPassword)}
+                                    aria-label={
+                                        showPassword
+                                            ? "Hide password"
+                                            : "Show password"
+                                    }
+                                    onClick={() =>
+                                        setShowPassword(!showPassword)
+                                    }
                                     className="absolute right-4 top-1/2 -translate-y-1/2 text-[#756D69]"
                                 >
                                     {showPassword ? (
@@ -298,7 +347,10 @@ const Login = () => {
                         >
                             {loading ? (
                                 <>
-                                    <Loader2 size={20} className="animate-spin" />
+                                    <Loader2
+                                        size={20}
+                                        className="animate-spin"
+                                    />
                                     Logging in...
                                 </>
                             ) : (
