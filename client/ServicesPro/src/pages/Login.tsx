@@ -53,6 +53,10 @@ const Login = () => {
                 password: form.password,
             });
 
+            console.log("LOGIN RESPONSE:", response);
+            console.log("USER:", response.user);
+            console.log("ROLE:", response.user?.role);
+
             if (!response.success || !response.user) {
                 setError(response.message || "Login failed.");
                 return;
